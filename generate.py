@@ -68,6 +68,8 @@ def make_batch(image, mask, device):
 
 
 def slerp(t, v0, v1, DOT_THRESHOLD=0.9995):
+    v0 = v0.detach().cpu().numpy()
+    v1 = v1.detach().cpu().numpy()
     dot = np.sum(v0 * v1 / (np.linalg.norm(v0) * np.linalg.norm(v1)))
     if np.abs(dot) > DOT_THRESHOLD:
         v2 = (1 - t) * v0 + t * v1
@@ -79,7 +81,7 @@ def slerp(t, v0, v1, DOT_THRESHOLD=0.9995):
         s0 = np.sin(theta_0 - theta_t) / sin_theta_0
         s1 = sin_theta_t / sin_theta_0
         v2 = s0 * v0 + s1 * v1
-    return v2
+    return torch.from_numpy(v2).to(device)
 
 
 def run_inpainting(opt, input_image, mask_image, callback=None, update_image_every=1):
