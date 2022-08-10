@@ -127,7 +127,7 @@ def run(config):
     elif config["mode"] == "interpolate":
         frames = run_diffusion_interpolation(settings, callback=video_callback)
         results = {"creation": Image(frames[0])}
-        output_file = 'results/interpolation_%d.mp4' % random.randint(1, 1e8)
+        output_file = 'interpolation_%d.mp4' % random.randint(1, 1e8)
         clip = mpy.ImageSequenceClip(frames, fps=8)
         clip.write_videofile(output_file)
         video_sha = get_file_sha256(output_file)
