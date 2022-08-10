@@ -78,6 +78,7 @@ my_args = {
     "plms": True,
     "C": 4,
     "f": 8,
+    "seed": 13,
     "fixed_code": False
 }
 
@@ -104,6 +105,7 @@ def run(config):
         f = config['f'],
         W = config["width"] - (config["width"] % 128),
         H = config["height"] - (config["height"] % 128),
+        seed = config["seed"],
         fixed_code = config["fixed_code"]
     )
 

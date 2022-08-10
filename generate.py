@@ -174,8 +174,7 @@ def run_diffusion(opt, callback=None, update_image_every=1):
     if opt.fixed_code:
         start_code = torch.randn([opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
 
-    if opt.seed:
-        seed_everything(opt.seed)
+    seed_everything(opt.seed)
 
     all_samples = list()
 
@@ -266,8 +265,7 @@ def run_diffusion_interpolation(opt, callback=None):
             shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
             fs = np.linspace(0, 1, opt.n_interpolate)
 
-            if opt.seed:
-                seed_everything(opt.seed)
+            seed_everything(opt.seed)
 
             all_samples = list()
             
