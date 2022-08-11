@@ -11,8 +11,11 @@ class StableDiffusionSettings:
     config: str = "configs/stable-diffusion/v1_improvedaesthetics.yaml"
     ckpt: str = "v1pp-flatlined-hr.ckpt"    
 
-    text_input: str = "hello world"        
+    text_input: str = "hello world" 
     
+    combined_text_inputs: List = field(default_factory=lambda: [])
+    combined_text_ratios: List = field(default_factory=lambda: [])
+
     # only for interpolate mode
     interpolation_texts: List = field(default_factory=lambda: [
         "hello world",

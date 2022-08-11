@@ -72,6 +72,8 @@ my_args = {
     "n_samples": 1,
     "interpolation_texts": [],
     "n_interpolate": 1,
+    "combined_text_inputs": [],
+    "combined_text_ratios": [],  
     "n_iter": 1,
     "scale": 5.0,
     "ddim_steps": 50,
@@ -86,8 +88,8 @@ my_args = {
 def run(config):
     
     mode = config["mode"]
-    assert(mode in ["generate", "inpaint", "interpolate"], \
-        f"Error: mode {mode} not recognized (generate or inpaint allowed)")
+    assert(mode in ["generate", "inpaint", "interpolate", "embed"], \
+        f"Error: mode {mode} not recognized (generate, inpaint, interpolate, embed allowed)")
 
     settings = StableDiffusionSettings(
         mode = config["mode"],
@@ -99,6 +101,8 @@ def run(config):
         n_iter = config["n_iter"],
         interpolation_texts = config["interpolation_texts"],
         n_interpolate = config["n_interpolate"],
+        combined_text_inputs = config["combined_text_inputs"],
+        combined_text_ratios = config["combined_text_ratios"],
         ckpt = "v1pp-flatlined-hr.ckpt",
         config = "configs/stable-diffusion/v1_improvedaesthetics.yaml", 
         C = config['C'],
@@ -124,6 +128,12 @@ def run(config):
     if config["mode"] == "generate":
         final_samples = run_diffusion(settings, callback=progress_callback, update_image_every=10)
         results = convert_samples_to_eden(final_samples)
+        return results
+
+    elif config["mode"] == "embed":
+        embedding = embed_prompt(settings)
+        embedding = embedding.detach().cpu().numpy().tolist()
+        results = {"embedding": embedding}
         return results
 
     elif config["mode"] == "interpolate":

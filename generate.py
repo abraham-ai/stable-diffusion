@@ -151,6 +151,18 @@ def run_inpainting(opt, input_image, mask_image, callback=None, update_image_eve
             return output_image
 
 
+def embed_prompt(opt):
+    global model
+    if model is None:        
+        config = OmegaConf.load(f"{opt.config}")
+        model = load_model_from_config(config, f"{opt.ckpt}")
+        model = model.to(device)        
+    with torch.no_grad():
+        with model.ema_scope():
+            c = model.get_learned_conditioning([opt.text_input])
+            return c
+
+
 def run_diffusion(opt, callback=None, update_image_every=1):
     
     global model
@@ -166,9 +178,10 @@ def run_diffusion(opt, callback=None, update_image_every=1):
     
     batch_size = opt.n_samples
 
-    assert opt.text_input is not None
-    prompt = opt.text_input
-    data = [batch_size * [prompt]]
+    assert opt.text_input is not None \
+        or opt.combined_text_inputs
+#    prompt = opt.text_input
+#    data = [batch_size * [prompt]]
         
     start_code = None
     if opt.fixed_code:
@@ -192,33 +205,38 @@ def run_diffusion(opt, callback=None, update_image_every=1):
     with torch.no_grad():
         with model.ema_scope():
             for n in trange(opt.n_iter, desc="Sampling"):
-                for prompts in tqdm(data, desc="data"):
-                    uc = None
-                    if opt.scale != 1.0:
-                        uc = model.get_learned_conditioning(batch_size * [""])
-                    if isinstance(prompts, tuple):
-                        prompts = list(prompts)
-                    c = model.get_learned_conditioning(prompts)
-                    shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
 
-                    samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
-                                                     img_callback=inner_callback if callback else None,
-                                                     conditioning=c,
-                                                     batch_size=opt.n_samples,
-                                                     shape=shape,
-                                                     verbose=False,
-                                                     unconditional_guidance_scale=opt.scale,
-                                                     unconditional_conditioning=uc,
-                                                     eta=opt.ddim_eta,
-                                                     dynamic_threshold=opt.dyn,
-                                                     x_T=start_code)
+                uc = None
+                if opt.scale != 1.0:
+                    uc = model.get_learned_conditioning(batch_size * [""])
 
-                    x_samples_ddim = model.decode_first_stage(samples_ddim)
-                    x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
+                if opt.combined_text_inputs:
+                    w = torch.tensor(opt.combined_text_ratios).to(device)
+                    cs = model.get_learned_conditioning(opt.combined_text_inputs)
+                    c = torch.movedim(cs, 0, 2).multiply(w).sum(axis=-1).unsqueeze(0)
+                else:
+                    c = model.get_learned_conditioning([opt.text_input])
 
-                    for x_sample in x_samples_ddim:
-                        x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-                        all_samples.append(x_sample.astype(np.uint8))
+                shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
+
+                samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
+                                                    img_callback=inner_callback if callback else None,
+                                                    conditioning=c,
+                                                    batch_size=opt.n_samples,
+                                                    shape=shape,
+                                                    verbose=False,
+                                                    unconditional_guidance_scale=opt.scale,
+                                                    unconditional_conditioning=uc,
+                                                    eta=opt.ddim_eta,
+                                                    dynamic_threshold=opt.dyn,
+                                                    x_T=start_code)
+
+                x_samples_ddim = model.decode_first_stage(samples_ddim)
+                x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
+
+                for x_sample in x_samples_ddim:
+                    x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                    all_samples.append(x_sample.astype(np.uint8))
 
     return all_samples
     
