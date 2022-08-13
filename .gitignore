@@ -6,3 +6,7 @@ __pycache__
 log.txt
 **.ckpt
 src/
+
+# eden specific stuff
+eden/MiDaS
+eden/models

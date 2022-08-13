@@ -10,7 +10,7 @@ from tqdm import tqdm, trange
 from itertools import islice
 from einops import rearrange, repeat
 from torchvision.utils import make_grid
-from torch import autocast
+# from torch import autocast
 from contextlib import nullcontext
 import time
 from pytorch_lightning import seed_everything
@@ -125,7 +125,6 @@ def main():
         default=1,
         help="sample this often",
     )
-
     parser.add_argument(
         "--C",
         type=int,
@@ -138,21 +137,18 @@ def main():
         default=8,
         help="downsampling factor, most often 8 or 16",
     )
-
     parser.add_argument(
         "--n_samples",
         type=int,
         default=2,
         help="how many samples to produce for each given prompt. A.k.a batch size",
     )
-
     parser.add_argument(
         "--n_rows",
         type=int,
         default=0,
         help="rows in the grid (default: n_samples)",
     )
-
     parser.add_argument(
         "--scale",
         type=float,
@@ -166,7 +162,6 @@ def main():
         default=0.75,
         help="strength for noising/unnoising. 1.0 corresponds to full destruction of information in init image",
     )
-
     parser.add_argument(
         "--from-file",
         type=str,
@@ -175,13 +170,13 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        default="logs/f8-kl-clip-encoder-256x256-run1/configs/2022-06-01T22-11-40-project.yaml",
+        default="configs/stable-diffusion/v1-inference.yaml",
         help="path to config which constructs model",
     )
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="logs/f8-kl-clip-encoder-256x256-run1/checkpoints/last.ckpt",
+        default="models/ldm/stable-diffusion-v1/model.ckpt",
         help="path to checkpoint of model",
     )
     parser.add_argument(
@@ -208,7 +203,7 @@ def main():
     model = model.to(device)
 
     if opt.plms:
-        raise NotImplementedError("check for plms")
+        raise NotImplementedError("PLMS sampler not (yet) supported")
         sampler = PLMSSampler(model)
     else:
         sampler = DDIMSampler(model)
@@ -291,7 +286,6 @@ def main():
                 toc = time.time()
 
     print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
-          f"Sampling took {toc - tic}s, i.e., produced {opt.n_iter * opt.n_samples / (toc - tic):.2f} samples/sec."
           f" \nEnjoy.")
 
 

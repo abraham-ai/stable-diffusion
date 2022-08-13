@@ -8,8 +8,8 @@ class StableDiffusionSettings:
 
     mode: str = "generate"
 
-    config: str = "configs/stable-diffusion/v1_improvedaesthetics.yaml"
-    ckpt: str = "v1pp-flatlined-hr.ckpt"    
+    config: str = "../configs/stable-diffusion/v1_improvedaesthetics.yaml"
+    ckpt: str = "models/v1pp-flatlined-hr.ckpt"    
 
     text_input: str = "hello world" 
     
