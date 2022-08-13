@@ -21,17 +21,16 @@ eval "$(/fsx/stable-diffusion/debug/miniconda3/bin/conda shell.bash hook)"
 conda activate torch111
 cd /fsx/stable-diffusion/stable-diffusion
 
-CONFIG=configs/stable-diffusion/v3_pretraining.yaml
+CONFIG="/fsx/stable-diffusion/stable-diffusion/configs/stable-diffusion/inpainting/v1-edgeinpainting.yaml"
+
+# start without masking
+EXTRA="data.params.train.postprocess.params.mask_edges=false -f _extracat"
 
 # resume and set new seed to reshuffle data
-#EXTRA="--seed 714 model.params.ckpt_path=/fsx/stable-diffusion/stable-diffusion/rlogs/2022-07-11T22-57-10_txt2img-v2-clip-encoder-improved_aesthetics-256/checkpoints/last.ckpt"
-#EXTRA="--seed 715 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-14T21-03-49_txt2img-v2-clip-encoder-improved_aesthetics-256/checkpoints/last.ckpt"
-#EXTRA="--seed 716 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-22T09-25-26_v3_pretraining/checkpoints/last.ckpt"
-#EXTRA="--seed 718 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-24T06-15-08_v3_pretraining/checkpoints/last.ckpt"
-EXTRA="--seed 719 --resume_from_checkpoint /fsx/stable-diffusion/stable-diffusion/logs/2022-07-26T08-15-23_v3_pretraining/checkpoints/last.ckpt"
+#EXTRA="--seed 543 --resume_from_checkpoint ..."
 
 # reduce lr a bit
-EXTRA="${EXTRA} model.params.scheduler_config.params.f_max=[0.75]"
+#EXTRA="${EXTRA} model.params.scheduler_config.params.f_max=[0.75]"
 
 # custom logdir
 #EXTRA="${EXTRA} --logdir rlogs"
