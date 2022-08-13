@@ -1,16 +1,19 @@
+"""make variations of input image"""
+
 import argparse, os, sys, glob
+import PIL
 import torch
 import numpy as np
 from omegaconf import OmegaConf
 from PIL import Image
 from tqdm import tqdm, trange
 from itertools import islice
-from einops import rearrange
+from einops import rearrange, repeat
 from torchvision.utils import make_grid
+from torch import autocast
+from contextlib import nullcontext
 import time
 from pytorch_lightning import seed_everything
-from torch import autocast
-from contextlib import contextmanager, nullcontext
 
 from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
@@ -42,6 +45,18 @@ def load_model_from_config(config, ckpt, verbose=False):
     return model
 
 
+def load_img(path):
+    image = Image.open(path).convert("RGB")
+    w, h = image.size
+    print(f"loaded input image of size ({w}, {h}) from {path}")
+    w, h = map(lambda x: x - x % 32, (w, h))  # resize to integer multiple of 32
+    image = image.resize((w, h), resample=PIL.Image.LANCZOS)
+    image = np.array(image).astype(np.float32) / 255.0
+    image = image[None].transpose(0, 3, 1, 2)
+    image = torch.from_numpy(image)
+    return 2.*image - 1.
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -54,11 +69,18 @@ def main():
     )
 
     parser.add_argument(
+        "--init-img",
+        type=str,
+        nargs="?",
+        help="path to the input image"
+    )
+
+    parser.add_argument(
         "--outdir",
         type=str,
         nargs="?",
         help="dir to write results to",
-        default="outputs/txt2img-samples"
+        default="outputs/img2img-samples"
     )
 
     parser.add_argument(
@@ -105,20 +127,6 @@ def main():
     )
 
     parser.add_argument(
-        "--H",
-        type=int,
-        default=256,
-        help="image height, in pixel space",
-    )
-
-    parser.add_argument(
-        "--W",
-        type=int,
-        default=256,
-        help="image width, in pixel space",
-    )
-
-    parser.add_argument(
         "--C",
         type=int,
         default=4,
@@ -134,7 +142,7 @@ def main():
     parser.add_argument(
         "--n_samples",
         type=int,
-        default=8,
+        default=2,
         help="how many samples to produce for each given prompt. A.k.a batch size",
     )
 
@@ -153,10 +161,12 @@ def main():
     )
 
     parser.add_argument(
-        "--dyn",
+        "--strength",
         type=float,
-        help="dynamic thresholding from Imagen, in latent space (TODO: try in pixel space with intermediate decode)",
+        default=0.75,
+        help="strength for noising/unnoising. 1.0 corresponds to full destruction of information in init image",
     )
+
     parser.add_argument(
         "--from-file",
         type=str,
@@ -187,6 +197,7 @@ def main():
         choices=["full", "autocast"],
         default="autocast"
     )
+
     opt = parser.parse_args()
     seed_everything(opt.seed)
 
@@ -197,6 +208,7 @@ def main():
     model = model.to(device)
 
     if opt.plms:
+        raise NotImplementedError("check for plms")
         sampler = PLMSSampler(model)
     else:
         sampler = DDIMSampler(model)
@@ -222,11 +234,18 @@ def main():
     base_count = len(os.listdir(sample_path))
     grid_count = len(os.listdir(outpath)) - 1
 
-    start_code = None
-    if opt.fixed_code:
-        start_code = torch.randn([opt.n_samples, opt.C, opt.H // opt.f, opt.W // opt.f], device=device)
+    assert os.path.isfile(opt.init_img)
+    init_image = load_img(opt.init_img).to(device)
+    init_image = repeat(init_image, '1 ... -> b ...', b=batch_size)
+    init_latent = model.get_first_stage_encoding(model.encode_first_stage(init_image))  # move to latent space
 
-    precision_scope = autocast if opt.precision=="autocast" else nullcontext
+    sampler.make_schedule(ddim_num_steps=opt.ddim_steps, ddim_eta=opt.ddim_eta, verbose=False)
+
+    assert 0. <= opt.strength <= 1., 'can only work with strength in [0.0, 1.0]'
+    t_enc = int(opt.strength * opt.ddim_steps)
+    print(f"target t_enc is {t_enc} steps")
+
+    precision_scope = autocast if opt.precision == "autocast" else nullcontext
     with torch.no_grad():
         with precision_scope("cuda"):
             with model.ema_scope():
@@ -240,28 +259,23 @@ def main():
                         if isinstance(prompts, tuple):
                             prompts = list(prompts)
                         c = model.get_learned_conditioning(prompts)
-                        shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
-                        samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
-                                                         conditioning=c,
-                                                         batch_size=opt.n_samples,
-                                                         shape=shape,
-                                                         verbose=False,
-                                                         unconditional_guidance_scale=opt.scale,
-                                                         unconditional_conditioning=uc,
-                                                         eta=opt.ddim_eta,
-                                                         dynamic_threshold=opt.dyn,
-                                                         x_T=start_code)
 
-                        x_samples_ddim = model.decode_first_stage(samples_ddim)
-                        x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
+                        # encode (scaled latent)
+                        z_enc = sampler.stochastic_encode(init_latent, torch.tensor([t_enc]*batch_size).to(device))
+                        # decode it
+                        samples = sampler.decode(z_enc, c, t_enc, unconditional_guidance_scale=opt.scale,
+                                                 unconditional_conditioning=uc,)
+
+                        x_samples = model.decode_first_stage(samples)
+                        x_samples = torch.clamp((x_samples + 1.0) / 2.0, min=0.0, max=1.0)
 
                         if not opt.skip_save:
-                            for x_sample in x_samples_ddim:
+                            for x_sample in x_samples:
                                 x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
                                 Image.fromarray(x_sample.astype(np.uint8)).save(
                                     os.path.join(sample_path, f"{base_count:05}.png"))
                                 base_count += 1
-                        all_samples.append(x_samples_ddim)
+                        all_samples.append(x_samples)
 
                 if not opt.skip_grid:
                     # additionally, save as grid
@@ -277,7 +291,7 @@ def main():
                 toc = time.time()
 
     print(f"Your samples are ready and waiting for you here: \n{outpath} \n"
-          f"Sampling took {toc - tic}s, i.e. produced {opt.n_iter * opt.n_samples / (toc - tic):.2f} samples/sec."
+          f"Sampling took {toc - tic}s, i.e., produced {opt.n_iter * opt.n_samples / (toc - tic):.2f} samples/sec."
           f" \nEnjoy.")
 
 
