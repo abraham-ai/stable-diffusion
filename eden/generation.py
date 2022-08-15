@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from einops import rearrange
+from tqdm import tqdm, trange
 from pytorch_lightning import seed_everything
 
 from ldm.models.diffusion.ddim import DDIMSampler
@@ -29,8 +30,6 @@ def generate(opt, callback=None, update_image_every=1):
 
     assert opt.text_input is not None \
         or opt.combined_text_inputs
-#    prompt = opt.text_input
-#    data = [batch_size * [prompt]]
         
     start_code = None
     if opt.fixed_code:
@@ -68,17 +67,18 @@ def generate(opt, callback=None, update_image_every=1):
 
                 shape = [opt.C, opt.H//opt.f, opt.W//opt.f]
 
-                samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
-                                                    img_callback=inner_callback if callback else None,
-                                                    conditioning=c,
-                                                    batch_size=opt.n_samples,
-                                                    shape=shape,
-                                                    verbose=False,
-                                                    unconditional_guidance_scale=opt.scale,
-                                                    unconditional_conditioning=uc,
-                                                    eta=opt.ddim_eta,
-                                                    dynamic_threshold=opt.dyn,
-                                                    x_T=start_code)
+                samples_ddim, _ = sampler.sample(
+                    S=opt.ddim_steps,
+                    img_callback=inner_callback if callback else None,
+                    conditioning=c,
+                    batch_size=opt.n_samples,
+                    shape=shape,
+                    verbose=False,
+                    unconditional_guidance_scale=opt.scale,
+                    unconditional_conditioning=uc,
+                    eta=opt.ddim_eta,
+                    dynamic_threshold=opt.dyn,
+                    x_T=start_code)
 
                 x_samples_ddim = model.decode_first_stage(samples_ddim)
                 x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)

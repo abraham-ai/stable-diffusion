@@ -22,7 +22,8 @@ class StableDiffusionSettings:
         "a painting of a virus monster playing guitar"
     ])
     n_interpolate: int = 1
-
+    strength: float = 0.5
+    
     # only for inpainting mode
     input_image: Image = None
     mask_image: Image = None

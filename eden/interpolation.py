@@ -72,16 +72,17 @@ def interpolate(opt, callback=None):
                 for f in fs:
                     c = slerp(f, c0, c1)
 
-                    samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
-                                                     conditioning=c,
-                                                     batch_size=opt.n_samples,
-                                                     shape=shape,
-                                                     verbose=False,
-                                                     unconditional_guidance_scale=opt.scale,
-                                                     unconditional_conditioning=uc,
-                                                     eta=opt.ddim_eta,
-                                                     dynamic_threshold=opt.dyn,
-                                                     x_T=start_code)
+                    samples_ddim, _ = sampler.sample(
+                        S=opt.ddim_steps,
+                        conditioning=c,
+                        batch_size=opt.n_samples,
+                        shape=shape,
+                        verbose=False,
+                        unconditional_guidance_scale=opt.scale,
+                        unconditional_conditioning=uc,
+                        eta=opt.ddim_eta,
+                        dynamic_threshold=opt.dyn,
+                        x_T=start_code)
 
                     x_samples_ddim = model.decode_first_stage(samples_ddim)
                     x_samples_ddim = torch.clamp((x_samples_ddim+1.0)/2.0, min=0.0, max=1.0)
