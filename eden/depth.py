@@ -1,4 +1,8 @@
 
+################################
+#### This doesn't work yet #####
+
+
 #git clone https://github.com/isl-org/MiDaS.git
 #mv MiDaS/utils.py MiDaS/midas_utils.py
 # pip install timm
@@ -26,6 +30,7 @@ from midas.transforms import Resize, NormalizeImage, PrepareForNet
 device = torch.device('cuda:0')# if (torch.cuda.is_available() and not useCPU) else 'cpu')
 
 model_path = 'models'
+
 
 @torch.no_grad()
 def transform_image_3d(img_filepath, midas_model, midas_transform, device, rot_mat=torch.eye(3).unsqueeze(0), translate=(0.,0.,-0.04), near=2000, far=20000, fov_deg=60, padding_mode='border', sampling_mode='bicubic', midas_weight = 0.3,spherical=False):
@@ -148,20 +153,22 @@ def get_spherical_projection(H, W, center, magnitude,device):
 # Initialize MiDaS depth model.
 # It remains resident in VRAM and likely takes around 2GB VRAM.
 # You could instead initialize it for each frame (and free it after each frame) to save VRAM.. but initializing it is slow.
-default_models = {
-    "midas_v21_small": f"{model_path}/midas_v21_small-70d6b9c8.pt",
-    "midas_v21": f"{model_path}/midas_v21-f6b98070.pt",
-    "dpt_large": f"{model_path}/dpt_large-midas-2f21e586.pt",
-    "dpt_hybrid": f"{model_path}/dpt_hybrid-midas-501f0c75.pt",
-    "dpt_hybrid_nyu": f"{model_path}/dpt_hybrid_nyu-2ce69ec7.pt",}
 
 
-def init_midas_depth_model(midas_model_type="dpt_large", optimize=True):
+def init_midas_depth_model(model_path, midas_model_type="dpt_large", optimize=True):
     midas_model = None
     net_w = None
     net_h = None
     resize_mode = None
     normalization = None
+
+    default_models = {
+        "midas_v21_small": f"{model_path}/midas_v21_small-70d6b9c8.pt",
+        "midas_v21": f"{model_path}/midas_v21-f6b98070.pt",
+        "dpt_large": f"{model_path}/dpt_large-midas-2f21e586.pt",
+        "dpt_hybrid": f"{model_path}/dpt_hybrid-midas-501f0c75.pt",
+        "dpt_hybrid_nyu": f"{model_path}/dpt_hybrid_nyu-2ce69ec7.pt",}
+
 
     print(f"Initializing MiDaS '{midas_model_type}' depth model...")
     # load network
@@ -296,7 +303,6 @@ def do_3d_step(img_filepath, frame_num, midas_model, midas_transform):
 
 
 
-
 midas_weight = 0.3
 near_plane = 200
 far_plane = 10000
@@ -308,12 +314,26 @@ sampling_mode = 'bicubic'
 TRANSLATION_SCALE = 1.0/200.0
 
 midas_depth_model = "dpt_large"
-midas_model, midas_transform, midas_net_w, midas_net_h, midas_resize_mode, midas_normalization = init_midas_depth_model(midas_depth_model)
 
 
 
-im2 = do_3d_step('../scripts/dog.jpg', 1, midas_model, midas_transform)
-im2.save('dog2.jpg')
+# midas_weight = 0.3
+# near_plane = 200
+# far_plane = 10000
+# fov = 40
+# padding_mode = 'border'
+# sampling_mode = 'bicubic'
+
+
+# TRANSLATION_SCALE = 1.0/200.0
+
+# midas_depth_model = "dpt_large"
+# midas_model, midas_transform, midas_net_w, midas_net_h, midas_resize_mode, midas_normalization = init_midas_depth_model(midas_depth_model)
+
+
+
+# im2 = do_3d_step('../scripts/dog.jpg', 1, midas_model, midas_transform)
+# im2.save('dog2.jpg')
 
 
 
