@@ -23,6 +23,8 @@ class StableDiffusionSettings:
     ])
     n_interpolate: int = 1
     strength: float = 0.5
+    loop: True
+    smooth: False
     
     # only for inpainting mode
     input_image: Image = None
